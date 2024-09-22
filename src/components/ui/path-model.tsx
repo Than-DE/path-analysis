@@ -27,13 +27,27 @@ const PathModel: React.FC<PathModelProps> = ({
   const disturbanceRadius = 15; // Radius of disturbance circles
 
   useEffect(() => {
+    const zoom = d3
+      .zoom<any, any>()
+      .scaleExtent([0.5, 1.5])
+      .translateExtent([
+        [0, 0],
+        [2000, 2000],
+      ])
+      .on("zoom", (event) => {
+        svg.select("g").attr("transform", event.transform);
+      });
     const svg = d3.select(svgRef.current);
 
     // Clear any previous SVG content
     svg.selectAll("*").remove();
 
+    const container = svg.append("g").attr("id", "path-model-container");
+
+    svg.call(zoom);
+
     // Create arrowhead marker for directed edges
-    svg
+    container
       .append("defs")
       .append("marker")
       .attr("id", "arrowhead")
@@ -88,7 +102,7 @@ const PathModel: React.FC<PathModelProps> = ({
         const controlPointX = midX;
         const controlPointY = midY + curveOffset;
 
-        svg
+        container
           .append("path")
           .attr(
             "d",
@@ -102,7 +116,7 @@ const PathModel: React.FC<PathModelProps> = ({
 
         // Add coefficient label
         if (showCoefficients) {
-          svg
+          container
             .append("text")
             .attr("x", midX)
             .attr("y", midY - 5) // Position above the edge
@@ -124,7 +138,7 @@ const PathModel: React.FC<PathModelProps> = ({
         if (isHorizontal) {
           // Draw horizontal arrows
           // First half
-          svg
+          container
             .append("line")
             .attr("x1", x1)
             .attr("y1", y1 + 10)
@@ -135,7 +149,7 @@ const PathModel: React.FC<PathModelProps> = ({
             .attr("marker-end", "url(#arrowhead)");
 
           // Second half
-          svg
+          container
             .append("line")
             .attr("x1", x2)
             .attr("y1", y2)
@@ -147,7 +161,7 @@ const PathModel: React.FC<PathModelProps> = ({
         } else {
           // Draw vertical arrows
           // First half
-          svg
+          container
             .append("line")
             .attr("x1", x1 + 10)
             .attr("y1", y1)
@@ -158,7 +172,7 @@ const PathModel: React.FC<PathModelProps> = ({
             .attr("marker-end", "url(#arrowhead)");
 
           // Second half
-          svg
+          container
             .append("line")
             .attr("x1", x2)
             .attr("y1", y2)
@@ -171,7 +185,7 @@ const PathModel: React.FC<PathModelProps> = ({
 
         if (showCoefficients) {
           // Add coefficient label for reciprocal edges
-          svg
+          container
             .append("text")
             .attr("x", midX)
             .attr("y", midY - 5)
@@ -183,7 +197,7 @@ const PathModel: React.FC<PathModelProps> = ({
         drawnEdges.add(reciprocalEdge.source + "-" + reciprocalEdge.target);
       } else {
         // Single arrow for non-reciprocal edges
-        svg
+        container
           .append("line")
           .attr("x1", x1)
           .attr("y1", y1)
@@ -196,7 +210,7 @@ const PathModel: React.FC<PathModelProps> = ({
         // Add coefficient label for non-reciprocal edges
 
         if (showCoefficients) {
-          svg
+          container
             .append("text")
             .attr("x", (x1 + x2) / 2)
             .attr("y", (y1 + y2) / 2 - 5)
@@ -209,7 +223,7 @@ const PathModel: React.FC<PathModelProps> = ({
     });
 
     // Draw nodes (squares)
-    svg
+    container
       .selectAll("rect")
       .data(pathModel.nodes)
       .enter()
@@ -258,7 +272,7 @@ const PathModel: React.FC<PathModelProps> = ({
       });
 
     // Add labels to nodes
-    svg
+    container
       .selectAll("text.label")
       .data(pathModel.nodes)
       .enter()
@@ -281,7 +295,7 @@ const PathModel: React.FC<PathModelProps> = ({
       const disturbanceY = node.y >= 300 ? node.y + 150 : node.y;
 
       // Draw the disturbance circle
-      svg
+      container
         .append("circle")
         .attr("cx", disturbanceX)
         .attr("cy", disturbanceY)
@@ -289,7 +303,7 @@ const PathModel: React.FC<PathModelProps> = ({
         .attr("fill", colors.zinc[100]);
 
       // Add the "ζ" label inside the disturbance circle
-      svg
+      container
         .append("text")
         .attr("x", disturbanceX)
         .attr("y", disturbanceY + 4) // Adjust for better centering
@@ -309,7 +323,7 @@ const PathModel: React.FC<PathModelProps> = ({
       const closestPoint = getClosestPointOnNode(disturbanceNode, node);
 
       // Draw an edge from disturbance to the endogenous node
-      svg
+      container
         .append("line")
         .attr("x1", disturbanceX)
         .attr("y1", disturbanceY)
@@ -364,7 +378,14 @@ const PathModel: React.FC<PathModelProps> = ({
     return { x: closestX, y: closestY };
   };
 
-  return <svg ref={svgRef} width="100%" height="100%" />;
+  return (
+    <svg
+      ref={svgRef}
+      className="overflow-hidden"
+      height="100vh"
+      width="100vw"
+    />
+  );
 };
 
 export default PathModel;

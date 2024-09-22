@@ -77,7 +77,7 @@ export default function Home() {
   }
 
   return (
-    <div className="dark min-h-screen pb-20 gap-16 font-[family-name:var(--font-geist-sans)]">
+    <div className="dark gap-16 font-[family-name:var(--font-geist-sans)]">
       <header className="p-3 z-[999] flex items-center justify-between bg-zinc-900/90 backdrop-blur-md fixed top-0 w-full">
         <h1 className="">Path Analysis experiments</h1>
         <div className="flex items-center gap-3">
@@ -119,7 +119,7 @@ export default function Home() {
           </Popover>
         </div>
       </header>
-      <div className="h-[800px] mt-24 flex flex-col relative">
+      <div className="flex flex-col relative h-screen max-h-screen overflow-hidden">
         <div className="fixed bottom-4 left-4">
           <Link
             href="https://marckohler.dev"
@@ -132,7 +132,7 @@ export default function Home() {
         </div>
         <div
           className={cn(
-            "fixed min-h-16 right-4 text-xs w-64 p-2 bg-zinc-800/70 rounded-lg text-zinc-300 duration-200 transition-opacity",
+            "fixed min-h-16 top-24 right-4 text-xs w-64 p-2 bg-zinc-800/70 rounded-lg text-zinc-300 duration-200 transition-opacity",
             detail === "" ? "opacity-0" : "opacity-100"
           )}
         >
