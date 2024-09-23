@@ -4,11 +4,10 @@ import React, { useRef, useEffect } from "react";
 import * as d3 from "d3";
 import type { Node, NodeProcessed, PathModelType } from "@/app/types";
 import colors from "tailwindcss/colors";
+import { useStore } from "@/lib/store";
 
 type PathModelProps = {
   pathModel: PathModelType;
-  showDisturbanceTerms: boolean;
-  showCoefficients: boolean;
   onNodeClick?: (node: NodeProcessed, event: PointerEvent) => void;
   onNodeHover?: (node: NodeProcessed, event: PointerEvent) => void;
   onNodeLeave?: () => void;
@@ -16,8 +15,6 @@ type PathModelProps = {
 
 const PathModel: React.FC<PathModelProps> = ({
   pathModel,
-  showDisturbanceTerms,
-  showCoefficients,
   onNodeClick,
   onNodeHover,
   onNodeLeave,
@@ -26,13 +23,15 @@ const PathModel: React.FC<PathModelProps> = ({
   const nodeSize = 100; // Width and height of square nodes
   const disturbanceRadius = 15; // Radius of disturbance circles
 
+  const { options, selectedNodes, selectedTool } = useStore();
+
   useEffect(() => {
     const zoom = d3
       .zoom<any, any>()
       .scaleExtent([0.5, 1.5])
       .translateExtent([
         [0, 0],
-        [2000, 2000],
+        [1000, 2000],
       ])
       .on("zoom", (event) => {
         svg.select("g").attr("transform", event.transform);
@@ -115,7 +114,7 @@ const PathModel: React.FC<PathModelProps> = ({
           .attr("marker-start", "url(#arrowhead)");
 
         // Add coefficient label
-        if (showCoefficients) {
+        if (options.showCoefficients) {
           container
             .append("text")
             .attr("x", midX)
@@ -183,7 +182,7 @@ const PathModel: React.FC<PathModelProps> = ({
             .attr("marker-end", "url(#arrowhead)");
         }
 
-        if (showCoefficients) {
+        if (options.showCoefficients) {
           // Add coefficient label for reciprocal edges
           container
             .append("text")
@@ -209,7 +208,7 @@ const PathModel: React.FC<PathModelProps> = ({
 
         // Add coefficient label for non-reciprocal edges
 
-        if (showCoefficients) {
+        if (options.showCoefficients) {
           container
             .append("text")
             .attr("x", (x1 + x2) / 2)
@@ -232,13 +231,18 @@ const PathModel: React.FC<PathModelProps> = ({
       .attr("y", (d) => d.y)
       .attr("width", nodeSize)
       .attr("height", nodeSize)
-      .attr("fill", colors.zinc[50])
-      .attr("stroke", colors.zinc[50])
+      .attr("fill", (d) => {
+        return selectedNodes.includes(d.id)
+          ? colors.pink[200]
+          : colors.zinc[50];
+      })
+      .attr("stroke", (d) => {
+        return selectedNodes.includes(d.id)
+          ? colors.pink[600]
+          : colors.zinc[50];
+      })
       .attr("stroke-width", 4)
-      .classed(
-        "duration-200 hover:cursor-pointer hover:stroke-emerald-500",
-        true
-      )
+      .classed("duration-100 hover:cursor-pointer hover:stroke-pink-400", true)
       .on("click", (event: PointerEvent, d) => {
         if (onNodeClick) {
           onNodeClick(
@@ -287,7 +291,7 @@ const PathModel: React.FC<PathModelProps> = ({
       // add propagation of pointer events to the text element
       .style("pointer-events", "none");
 
-    if (!showDisturbanceTerms) return;
+    if (!options.showDisturbanceTerms) return;
     // Draw disturbance terms for endogenous nodes
     endogenousNodes.forEach((node) => {
       // Position disturbance node near the endogenous node
@@ -333,7 +337,13 @@ const PathModel: React.FC<PathModelProps> = ({
         .attr("stroke-width", 2)
         .attr("marker-end", "url(#arrowhead)");
     });
-  }, [pathModel, showCoefficients, showDisturbanceTerms]);
+  }, [
+    pathModel,
+    selectedTool,
+    selectedNodes,
+    options.showCoefficients,
+    options.showDisturbanceTerms,
+  ]);
 
   // Helper function to get node by ID
   const getNode = (pathModel: PathModelProps["pathModel"], id: string) => {

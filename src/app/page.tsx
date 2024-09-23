@@ -1,52 +1,34 @@
 "use client";
 import PathModel from "@/components/ui/path-model";
-import { PathModelType } from "./types";
+import { PathModelType, Node, Edge } from "./types";
 import { Button } from "@/components/ui/button";
-import { MixerHorizontalIcon } from "@radix-ui/react-icons";
+import { MixerHorizontalIcon, ReloadIcon } from "@radix-ui/react-icons";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { MODELS } from "@/lib/models";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useStore } from "@/lib/store";
+import Toolbar from "@/components/ui/toolbar";
 
 export default function Home() {
-  const getRandomPathModel = () => {
-    const randomIndex = Math.floor(Math.random() * MODELS.length);
-    const model = MODELS[randomIndex];
-
-    // Randomize coefficients
-    model.edges = model.edges.map((edge) => {
-      const coefficient = +(Math.random() * 2 - 1).toFixed(3);
-      if (coefficient === 0) {
-        // randomize again if coefficient is 0
-        return {
-          ...edge,
-          coefficient: +(Math.random() * 2 - 1).toFixed(3),
-        };
-      }
-      return {
-        ...edge,
-        coefficient: +(Math.random() * 2 - 1).toFixed(3),
-      };
-    });
-
-    return model;
-  };
-
-  const [showCoefficients, setShowCoefficients] = useState(true);
-  const [showDisturbanceTerms, setShowDisturbanceTerms] = useState(true);
-  const [pathModel, setPathModel] = useState<PathModelType>(
-    getRandomPathModel()
-  );
-
-  const [detail, setDetail] = useState("");
+  const {
+    options,
+    setOption,
+    pathModel,
+    setPathModel,
+    selectedTool,
+    toolDetail,
+    setToolDetail,
+    selectedNodes,
+    setSelectedNodes,
+  } = useStore();
 
   function getRegressionEquation(
     pathModel: PathModelType,
@@ -76,15 +58,152 @@ export default function Home() {
     }
   }
 
+  function getNodeById(pathModel: PathModelType, nodeId: string): Node {
+    return pathModel.nodes.find((node) => node.id === nodeId)!;
+  }
+
+  function getImpliedCorrelation(
+    pathModel: PathModelType,
+    node1: Node,
+    node2: Node
+  ) {
+    const impliedCorrelation = {
+      total: 0,
+      components: [] as { edges: Edge[]; contribution: number }[],
+    };
+
+    function findPaths(
+      currentNode: Node,
+      targetNode: Node,
+      visited: Set<string>,
+      path: Edge[],
+      accCoefficient: number,
+      directionChanges: number,
+      unknownEffectsUsed: number
+    ) {
+      if (currentNode.id === targetNode.id) {
+        // Add the current path contribution
+        impliedCorrelation.total += accCoefficient;
+        impliedCorrelation.components.push({
+          edges: [...path],
+          contribution: accCoefficient,
+        });
+        return;
+      }
+
+      visited.add(currentNode.id);
+
+      // Iterate over edges to find paths
+      pathModel.edges.forEach((edge) => {
+        let nextNode: Node | null = null;
+        let newCoefficient = accCoefficient * edge.coefficient;
+        let newDirectionChanges = directionChanges;
+        let newUnknownEffectsUsed = unknownEffectsUsed;
+
+        // Follow the direction of the arrow (source -> target)
+        if (edge.source === currentNode.id && !visited.has(edge.target)) {
+          nextNode = getNodeById(pathModel, edge.target);
+        }
+        // Allow one change in direction (target -> source)
+        else if (
+          edge.target === currentNode.id &&
+          !visited.has(edge.source) &&
+          directionChanges < 1
+        ) {
+          nextNode = getNodeById(pathModel, edge.source);
+          newDirectionChanges += 1; // Increment direction change count
+        }
+
+        if (nextNode) {
+          // Check if it's an unknown effect (double-headed arrow)
+          if (edge.isUnknownEffect) {
+            if (unknownEffectsUsed < 1) {
+              newUnknownEffectsUsed += 1;
+            } else {
+              // Skip if more than one unknown effect is used
+              return;
+            }
+          }
+
+          // Recursively search for the target node through valid paths
+          findPaths(
+            nextNode,
+            targetNode,
+            visited,
+            [...path, edge], // Add the current edge to the path
+            newCoefficient,
+            newDirectionChanges,
+            newUnknownEffectsUsed
+          );
+        }
+      });
+
+      visited.delete(currentNode.id); // Backtrack
+    }
+
+    // Start finding paths from node1 to node2
+    findPaths(node1, node2, new Set(), [], 1, 0, 0);
+
+    return {
+      impliedCorrelation: impliedCorrelation.total,
+      breakdown: impliedCorrelation.components,
+    };
+  }
+
+  useEffect(() => {
+    if (selectedNodes.length === 2) {
+      const { impliedCorrelation, breakdown } = getImpliedCorrelation(
+        pathModel,
+        getNodeById(pathModel, selectedNodes[0])!,
+        getNodeById(pathModel, selectedNodes[1])!
+      );
+
+      console.log(impliedCorrelation, breakdown);
+
+      setToolDetail(
+        <div>
+          <p className="border-b border-zinc-400">
+            = {impliedCorrelation.toFixed(3)}
+          </p>
+          {breakdown.map((component, i) => (
+            <div key={i}>
+              <span>
+                {component.edges.map((edge, idx) => {
+                  const previousEdge = component.edges[idx - 1];
+                  if (previousEdge && previousEdge.target !== edge.source) {
+                    return (
+                      <span key={`${edge.source}-${idx}`}>
+                        {" -> "}
+                        <span>{edge.source}</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <span key={`${edge.source}-${idx}`}>
+                      {idx === 0 && <span>{edge.source}</span>}
+                      <span>
+                        {" "}
+                        {" -> "} {edge.target}
+                      </span>
+                    </span>
+                  );
+                })}
+              </span>
+              <span> ({component.contribution.toFixed(3)})</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+  }, [selectedNodes]);
+
   return (
-    <div className="dark gap-16 font-[family-name:var(--font-geist-sans)]">
+    <div className="gap-16 font-[family-name:var(--font-geist-sans)]">
       <header className="p-3 z-[999] flex items-center justify-between bg-zinc-900/90 backdrop-blur-md fixed top-0 w-full">
         <h1 className="">Path Analysis experiments</h1>
         <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={() => setPathModel(getRandomPathModel())}
-          >
+          <Button variant="secondary" onClick={() => setPathModel()}>
+            <ReloadIcon className="mr-2" />
             Change model
           </Button>
           <Popover>
@@ -100,16 +219,16 @@ export default function Home() {
               <div className="flex items-center space-x-2">
                 <Switch
                   id="show-disturbance"
-                  checked={showDisturbanceTerms}
-                  onCheckedChange={(v) => setShowDisturbanceTerms(v)}
+                  checked={options.showDisturbanceTerms}
+                  onCheckedChange={(v) => setOption("showDisturbanceTerms", v)}
                 />
                 <Label htmlFor="show-disturbance">Show disturbance terms</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="show-coefficients"
-                  checked={showCoefficients}
-                  onCheckedChange={(v) => setShowCoefficients(v)}
+                  checked={options.showCoefficients}
+                  onCheckedChange={(v) => setOption("showCoefficients", v)}
                 />
                 <Label htmlFor="show-coefficients">
                   Show path coefficients
@@ -119,8 +238,10 @@ export default function Home() {
           </Popover>
         </div>
       </header>
+      <Toolbar />
       <div className="flex flex-col relative h-screen max-h-screen overflow-hidden">
         <div className="fixed bottom-4 left-4">
+          <div className="md:hidden">Does not work well on mobile devices</div>
           <Link
             href="https://marckohler.dev"
             target="_blank"
@@ -132,28 +253,40 @@ export default function Home() {
         </div>
         <div
           className={cn(
-            "fixed min-h-16 top-24 right-4 text-xs w-64 p-2 bg-zinc-800/70 rounded-lg text-zinc-300 duration-200 transition-opacity",
-            detail === "" ? "opacity-0" : "opacity-100"
+            "fixed top-24 right-4 text-sm w-64 p-3 bg-zinc-800/70 rounded-lg text-zinc-300 duration-200 transition-opacity",
+            toolDetail === null ? "opacity-0" : "opacity-100"
           )}
         >
-          {detail}
+          <div className="font-bold mb-2">
+            {selectedTool === "equations"
+              ? "Regression equation"
+              : "Implied correlation"}
+          </div>
+          {toolDetail}
         </div>
         <PathModel
           pathModel={pathModel}
-          showDisturbanceTerms={showDisturbanceTerms}
-          showCoefficients={showCoefficients}
           onNodeClick={(node) => {
-            if (node.type === "exogenous") {
-              toast.error("No regression equation for exogenous variables");
-              return;
+            if (selectedTool === "equations") {
+              if (node.type === "exogenous") {
+                toast.error("No regression equation for exogenous variables");
+                setToolDetail(null);
+                return;
+              }
+              if (node.type === "endogenous") {
+                setToolDetail(getRegressionEquation(pathModel, node.id));
+              }
+            } else if (selectedTool === "implied-correlations") {
+              // if node already selected, deselect it
+              if (selectedNodes.includes(node.id)) {
+                setSelectedNodes(selectedNodes.filter((n) => n !== node.id));
+              } else {
+                if (selectedNodes.length < 2) {
+                  setSelectedNodes([...selectedNodes, node.id]);
+                }
+              }
             }
           }}
-          onNodeHover={(node) => {
-            if (node.type === "endogenous") {
-              setDetail(getRegressionEquation(pathModel, node.id));
-            }
-          }}
-          onNodeLeave={() => setDetail("")}
         />
       </div>
     </div>
