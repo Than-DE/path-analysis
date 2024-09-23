@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
 import type { Node, NodeProcessed, PathModelType } from "@/app/types";
 import colors from "tailwindcss/colors";
@@ -23,6 +23,9 @@ const PathModel: React.FC<PathModelProps> = ({
   const nodeSize = 100; // Width and height of square nodes
   const disturbanceRadius = 15; // Radius of disturbance circles
 
+  const [zoomTransform, setZoomTransform] = useState<d3.ZoomTransform>(
+    d3.zoomIdentity
+  );
   const { options, selectedNodes, selectedTool } = useStore();
 
   useEffect(() => {
@@ -35,6 +38,7 @@ const PathModel: React.FC<PathModelProps> = ({
       ])
       .on("zoom", (event) => {
         svg.select("g").attr("transform", event.transform);
+        setZoomTransform(event.transform);
       });
     const svg = d3.select(svgRef.current);
 
@@ -44,6 +48,8 @@ const PathModel: React.FC<PathModelProps> = ({
     const container = svg.append("g").attr("id", "path-model-container");
 
     svg.call(zoom);
+
+    svg.call(zoom.transform, zoomTransform);
 
     // Create arrowhead marker for directed edges
     container
@@ -343,6 +349,7 @@ const PathModel: React.FC<PathModelProps> = ({
     selectedNodes,
     options.showCoefficients,
     options.showDisturbanceTerms,
+    zoomTransform,
   ]);
 
   // Helper function to get node by ID
