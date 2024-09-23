@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -96,7 +96,7 @@ export default function Home() {
       // Iterate over edges to find paths
       pathModel.edges.forEach((edge) => {
         let nextNode: Node | null = null;
-        let newCoefficient = accCoefficient * edge.coefficient;
+        const newCoefficient = accCoefficient * edge.coefficient;
         let newDirectionChanges = directionChanges;
         let newUnknownEffectsUsed = unknownEffectsUsed;
 
