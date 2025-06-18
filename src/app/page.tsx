@@ -241,15 +241,34 @@ export default function Home() {
       <Toolbar />
       <div className="flex flex-col relative h-screen max-h-screen overflow-hidden">
         <div className="fixed bottom-4 left-4">
-          <div className="md:hidden">Does not work well on mobile devices</div>
+          <div className="md:hidden">Does not work well on mobile devices. Consider using a desktop or tablet device.</div>
+          <div className="flex flex-col gap-3">
+          
           <Link
             href="https://marckohler.dev"
             target="_blank"
             rel="noopener"
-            className="text-zinc-700 hover:text-zinc-500 duration-200"
+            className="text-sm text-zinc-700 hover:text-zinc-500 duration-200"
           >
             marckohler.dev
           </Link>
+            <Link
+            href="https://tilburguniversity.edu"
+            target="_blank"
+            rel="noopener"
+            className="text-sm text-zinc-700 hover:text-zinc-500 duration-200"
+          >
+            Tilburg University
+          </Link>
+            <Link
+            href="https://github.com/Than-DE/path-analysis"
+            target="_blank"
+            rel="noopener"
+            className="text-sm text-zinc-700 hover:text-zinc-500 duration-200"
+          >
+            Source code
+          </Link>
+          </div>
         </div>
         <div
           className={cn(
