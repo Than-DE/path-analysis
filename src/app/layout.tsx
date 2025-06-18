@@ -17,7 +17,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "Path Analysis",
-  description: "An experimental learning tool for understanding path analysis",
+  description: "An experimental learning tool for understanding path analysis. Created for the Tilburg University Methodology and Statistics department",
 };
 
 export default function RootLayout({
